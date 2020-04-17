@@ -30,7 +30,7 @@ class Header {
                 },
                 3: {name: 'punctuation.definition.tag.end.cylc'}
             },
-            comment: '@TODO handle `+`, `-`, `/` chars; convert to begin/end instead of match?'
+            // @TODO handle `+`, `-`, `/` chars
         };
     }
 }
