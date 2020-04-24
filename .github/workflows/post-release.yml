@@ -1,0 +1,27 @@
+name: On-release webhook
+
+on: [release]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel:
+jobs:
+  POST:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Steps represent a sequence of tasks that will be executed as part of the job:
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2.1.0
+      
+      # This probably won't work as github-script uses GITHUB_TOKEN authentication, whereas a personal access token is needed
+      - name: Create repository dispatch events
+        uses: actions/github-script@0.9.0
+        with:
+          script: |
+            github.repos.createDispatchEvent({
+              owner: context.repo.owner,
+              repo: "vscode-cylc",
+              event-type: "grammar-release",
+              client-payload: {
+                "releaseVersion": context.repo.ref
+              }
+            });
