@@ -10,9 +10,6 @@
             "include": "#jinja2"
         },
         {
-            "include": "#graphSections"
-        },
-        {
             "include": "#headers"
         },
         {
