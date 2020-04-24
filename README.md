@@ -1,6 +1,6 @@
 # cylc-textmate-grammar
 
-![test](https://github.com/MetRonnie/cylc-textmate-grammar/workflows/test/badge.svg)
+![test](https://github.com/MetRonnie/cylc-textmate-grammar/workflows/test/badge.svg?branch=badge&event=push)
 
 This repository provides a TextMate grammar for Cylc workflow configuration (`suite.rc`) files, enabling syntax highlighting and other features.
 
