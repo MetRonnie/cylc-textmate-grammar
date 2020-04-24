@@ -45,10 +45,13 @@ graph = """
     foo<{{ a }}>
 #      ^         punctuation.definition.annotation.begin.cylc
 #              ^ punctuation.definition.annotation.end.cylc
-    <x_{{ a }}_y>
+    <x_{{ a }}_y> & <x={{ a }}> & <{{ a }}=2>
 #    ^^                                       variable.parameter.cylc
 #             ^^                              variable.parameter.cylc
-
+#                    ^                        variable.parameter.cylc
+#                     ^                       keyword.operator.assignment.cylc
+#                                         ^   keyword.operator.assignment.cylc
+#                                          ^  constant.numeric.cylc
 """
 
 ## Parameterised header
