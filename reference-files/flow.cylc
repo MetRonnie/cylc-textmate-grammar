@@ -35,7 +35,9 @@ foo = """
     lala
 """uh-oh
 # However this should have unquoted string scope:
-script = echo "meow"
+    script = """
+        echo meow
+    """
 
 # "bar" should not display as a string when triple quotes not used:
 foo =

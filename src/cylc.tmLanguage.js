@@ -837,6 +837,26 @@ class Jinja2Comment {
 }
 
 
+class RuntimeScript {
+    constructor() {
+        this.pattern = {
+            comment: '[runtime][X]script setting',
+            begin: `\\b(script)[\\t ]*(=)[\\t ]*"""`,
+            end: `[\\t ]*"""`, // Will match after subexps in patterns below have finished (i.e. subexps win; end can be dragged onto another line)
+            beginCaptures: {
+                // 1: {name: 'keyword.runtime-script.cylc'},
+                2: {name: 'keyword.operator.assignment.cylc'},
+            },
+            contentName: 'source.shell',
+            patterns: [
+                {include: 'source.shell'},
+                // new IllegalSecondString().pattern,
+            ]
+        };
+    }
+}
+
+
 
 exports.tmLanguage = {
     scopeName: 'source.cylc',
@@ -848,6 +868,7 @@ exports.tmLanguage = {
         {include: '#jinja2'},
         {include: '#graphSections'},
         {include: '#headers'},
+        {include: '#runtimeScript'},
         {include: '#settings'},
         {include: '#includeFiles'},
         {include: '#keywords'},
@@ -880,6 +901,11 @@ exports.tmLanguage = {
         settings: {
             patterns: [
                 new Setting().pattern,
+            ]
+        },
+        runtimeScript: {
+            patterns: [
+                new RuntimeScript().pattern,
             ]
         },
         includeFiles: {

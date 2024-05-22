@@ -24,6 +24,9 @@
             "include": "#headers"
         },
         {
+            "include": "#runtimeScript"
+        },
+        {
             "include": "#settings"
         },
         {
@@ -397,6 +400,26 @@
                                     ]
                                 }
                             }
+                        }
+                    ]
+                }
+            ]
+        },
+        "runtimeScript": {
+            "patterns": [
+                {
+                    "comment": "[runtime][X]script setting",
+                    "begin": "\\b(script)[\\t ]*(=)[\\t ]*\"\"\"",
+                    "end": "[\\t ]*\"\"\"",
+                    "beginCaptures": {
+                        "2": {
+                            "name": "keyword.operator.assignment.cylc"
+                        }
+                    },
+                    "contentName": "source.shell",
+                    "patterns": [
+                        {
+                            "include": "source.shell"
                         }
                     ]
                 }
