@@ -27,13 +27,25 @@ function capturesFromValues(entries, start = 1) {
     );
 }
 
+/**
+ * Concatenate multiple RegExp objects into a single RegExp object.
+ *
+ * @param  {...(RegExp|string)} args
+ * @returns {RegExp}
+ */
+function regexJoin(...args) {
+    return new RegExp(args.map(
+        (arg) => arg instanceof RegExp ? arg.source : arg
+    ).join(''));
+}
+
 
 
 class Header {
     constructor() {
         this.pattern = {
             name: 'meta.section.cylc',
-            match: '(\\[+)([^\\[\\]]+?)(\\]+)',
+            match: /(\[+)([^\[\]]+?)(\]+)/,
             captures: {
                 1: {name: 'punctuation.definition.tag.begin.cylc'},
                 2: {
@@ -55,7 +67,7 @@ class IncludeFile {
     constructor() {
         this.pattern = {
             name: 'meta.include.cylc',
-            match: '(%include)[\\t ]*(.*)',
+            match: /(%include)[\t ]*(.*)/,
             captures: {
                 1: {name: 'keyword.control.include.cylc'},
                 2: {
@@ -75,7 +87,7 @@ class Keyword {
     constructor() {
         this.pattern = {
             name: 'keyword.control.cylc',
-            match: '\\b(if|for|while|return)\\b'
+            match: /\b(if|for|while|return)\b/
         };
     }
 }
@@ -85,8 +97,8 @@ class LineComment {
     constructor() {
         this.pattern = {
             name: 'comment.line.cylc',
-            begin: '#',
-            end: '(?=[\\n\\r])',
+            begin: /#/,
+            end: /(?=[\n\r])/,
             beginCaptures: {
                 0: {name: 'punctuation.definition.comment.cylc'}
             },
@@ -103,15 +115,15 @@ class Setting {
     constructor() {
         this.pattern = {
             name: 'meta.setting.cylc',
-            begin: `([^=#\\s][^=#\\n\\r]*?)?[\\t ]*(=)[\\t ]*`,
-            end: `(?=[#\\n\\r])`, // Will match after subexps in patterns below have finished (i.e. subexps win; end can be dragged onto another line)
+            begin: /([^=#\s][^=#\n\r]*?)?[\t ]*(=)[\t ]*/,
+            end: /(?=[#\n\r])/, // Will match after subexps in patterns below have finished (i.e. subexps win; end can be dragged onto another line)
             beginCaptures: {
                 1: {
                     patterns: [
                         {include: '#jinja2'},
                         {
                             name: 'variable.other.key.cylc',
-                            match: `[\\w\\-\\t ]+`,
+                            match: /[\w\-\t ]+/,
                         }
                     ]
                 },
@@ -123,7 +135,7 @@ class Setting {
                 new IllegalSecondString().pattern,
                 {include: '#jinja2'},
                 {
-                    match: `([^#\\n\\r]+)`,
+                    match: /([^#\n\r]+)/,
                     captures: {
                         1: {
                             name: 'string.unquoted.value.cylc',
@@ -143,8 +155,8 @@ class StringQuotedTriple {
     constructor() {
         this.pattern = {
             name: `string.quoted.triple.cylc`,
-            begin: `("{3})`,
-            end: `("{3})`,
+            begin: /("{3})/,
+            end: /("{3})/,
             beginCaptures: {
                 1: {name: 'punctuation.definition.string.begin.cylc'}
             },
@@ -155,7 +167,7 @@ class StringQuotedTriple {
                 {include: '#jinja2'},
                 {
                     name: 'constant.character.escape.cylc',
-                    match: '\\\\.'
+                    match: /\\./
                 }
             ]
         };
@@ -164,14 +176,14 @@ class StringQuotedTriple {
 class StringQuotedDouble extends StringQuotedTriple {
     constructor() {
         super();
-        const inherit = this.pattern;
+        const { beginCaptures, endCaptures, patterns } = this.pattern;
         this.pattern = {
             name: `string.quoted.double.cylc`,
-            begin: `(")`,
-            end: `(["\\n\\r])`,
-            beginCaptures: inherit.beginCaptures,
-            endCaptures: inherit.endCaptures,
-            patterns: inherit.patterns
+            begin: /(")/,
+            end: /(["\n\r])/,
+            beginCaptures,
+            endCaptures,
+            patterns,
         };
     }
 }
@@ -180,7 +192,8 @@ class IllegalSecondString {
     constructor() {
         this.pattern = {
             comment: 'In this situation, we cannot have string after string, or string on new line',
-            match: `(?:^|(?<="))[\\t ]*+([^#\\n\\r]+)`,
+            match: /(?:^|(?<="))[\t ]/.source + '*+' + /([^#\n\r]+)/.source,
+            // Note '*+' is possessive quantifier, allowed in the Oniguruma regex engine, but not JS.
             captures: {
                 1: {name: 'invalid.illegal.string.cylc'}
             }
@@ -197,7 +210,9 @@ class GraphStringQuoted {
         else throw "type must be 'double' or 'triple'";
         this.pattern = {
             name: `meta.graph-syntax.quoted.${type}.cylc`,
-            begin: `\\G${str.pattern.begin}`,
+            begin: regexJoin(/\G/, str.pattern.begin),
+            // '\G' is an anchor in the Oniguruma regex engine (but not JS).
+            // It matches only at the current scan position instead of skipping ahead.
             end: str.pattern.end,
             beginCaptures: {
                 0: {name: str.pattern.name},
@@ -217,7 +232,7 @@ class GraphStringUnquoted {
     constructor() {
         this.pattern = {
             name: 'meta.graph-syntax.unquoted.cylc',
-            match: `\\G[^#\\n\\r"]+`,
+            match: /\G[^#\n\r"]+/,
             captures: {
                 0: {
                     patterns: [
@@ -234,8 +249,8 @@ class GraphSection7 {
     constructor() {
         this.pattern = {
             comment: 'Cylc 7 graph syntax',
-            begin: `\\b(graph)[\\t ]*(=)[\\t ]*`,
-            end: `(?=[#\\n\\r])`, // Will match after subexps in patterns below have finished (i.e. subexps win; end can be dragged onto another line)
+            begin: /\b(graph)[\t ]*(=)[\t ]*/,
+            end: /(?=[#\n\r])/, // Will match after subexps in patterns below have finished (i.e. subexps win; end can be dragged onto another line)
             beginCaptures: {
                 1: {name: 'keyword.graph.cylc'},
                 2: {name: 'keyword.operator.assignment.cylc'},
@@ -254,8 +269,8 @@ class GraphSection8 extends GraphSection7 {
         this.pattern = {
             contentName: 'meta.graph-section.cylc',
             comment: 'Cylc 8 graph syntax',
-            begin: `\\[{2}[\\t ]*graph[\\t ]*\\]{2}`,
-            end: `(?=^[\\t ]*\\[)`,
+            begin: /\[{2}[\t ]*graph[\t ]*\]{2}/,
+            end: /(?=^[\t ]*\[)/,
             beginCaptures: {
                 0: {
                     patterns: [
@@ -266,7 +281,7 @@ class GraphSection8 extends GraphSection7 {
             patterns: [
                 {include: '#comments'},
                 {
-                    begin: `(\\S[^=#]*)(=)[\\t ]*`,
+                    begin: /(\S[^=#]*)(=)[\t ]*/,
                     end: inherit.end,
                     beginCaptures: {
                         1: {
@@ -274,7 +289,7 @@ class GraphSection8 extends GraphSection7 {
                                 {include: '#jinja2'},
                                 {
                                     name: 'keyword.graph.cylc',
-                                    match: `[\\w\\+\\^\\$][\\w\\+\\-\\^\\$\\/\\t ,:]*` // @TODO: need to implement recurrence syntax properly
+                                    match: /[\w\+\^\$][\w\+\-\^\$\/\t ,:]*/ // @TODO: need to implement recurrence syntax properly
                                 }
                             ]
                         },
@@ -300,16 +315,16 @@ class GraphSyntax {
             new Task().pattern,
             {
                 name: 'keyword.control.trigger.cylc',
-                match: '=>'
+                match: /=>/
             },
             {
                 name: 'keyword.other.logical.cylc',
-                match: '[\\|&]'
+                match: /[\|&]/
             },
             {
                 name: 'meta.parens.cylc',
-                begin: '\\(',
-                end: '[\\)\\n\\r]',
+                begin: /\(/,
+                end: /[\)\n\r]/,
                 beginCaptures: {
                     0: {name: 'punctuation.section.parens.begin.cylc'}
                 },
@@ -322,7 +337,7 @@ class GraphSyntax {
             },
             {
                 name: 'meta.variable.suicide.cylc',
-                match: `(?<=^|[\\s&>])(!)(${task.regex})`,
+                    match: regexJoin(/(?<=^|[\s&>])(!)/, `(${task.regex.source})`),
                 captures: {
                     1: {name: 'keyword.other.suicide.cylc'},
                     2: {name: task.name},
@@ -330,14 +345,14 @@ class GraphSyntax {
             },
             {
                 name: 'variable.other.xtrigger.cylc',
-                match: '(@)[\\w\\-]+',
+                match: /(@)[\w\-]+/,
                 captures: {
                     1: {name: 'punctuation.definition.variable.cylc'}
                 }
             },
             {
                 name: 'constant.character.escape.continuation.cylc',
-                match: '\\\\'
+                match: /\\/
             },
         ];
     }
@@ -351,14 +366,14 @@ class Task {
         const interCycle = new InterCycleDep();
 
         this.name = 'meta.variable.task.cylc';
-        this.regex = `\\b\\w[\\w\\+\\-@%]*`;
+        this.regex = /\b\w[\w\+\-@%]*/;
         this.pattern = {
-            match: [
-                `(${this.regex})`,
-                `${interCycle.regex}?`,
-                `${qualifier.regex}?`,
-                `${optionalOutput.regex}?`,
-            ].join(''),
+            match: regexJoin(
+                `(${this.regex.source})`,
+                `${interCycle.regex.source}?`,
+                `${qualifier.regex.source}?`,
+                `${optionalOutput.regex.source}?`,
+            ),
             captures: capturesFromValues([
                 {name: this.name},
                 ...Object.values(interCycle.pattern.captures),
@@ -370,9 +385,10 @@ class Task {
 }
 class TaskQualifier {
     constructor() {
+        this.regex = /((:)([\w\-]+))/;
         this.pattern = {
             comment: 'e.g. foo:fail',
-            match: `(?<!^|[\\s:])${this.regex = `((:)([\\w\\-]+))`}`,
+            match: regexJoin(/(?<!^|[\s:])/, this.regex),
             captures: {
                 1: {name: 'meta.annotation.qualifier.cylc'},
                 2: {name: 'punctuation.definition.annotation.cylc'},
@@ -384,24 +400,13 @@ class TaskQualifier {
 class OptionalOutput {
     constructor() {
         this.name = 'keyword.other.optional-output.cylc';
-        this.regex = [
-            `\\s*(`,
-                `\\?`,
-                `(?![:\\w])`, // disallow in middle of task name or before qualifier
-            `)`,
-        ].join('');
+        this.regex = /\s*(\?(?![:\w]))/; // disallow in middle of task name or before qualifier
     }
 }
 class InterCycleDep {
     constructor() {
         this.name = 'meta.annotation.inter-cycle.cylc';
-        this.regex = [
-            `(`,
-                `(\\[)`,
-                    `([^\\]]+)`,
-                `(\\])`,
-            `)`,
-        ].join('');
+        this.regex = /((\[)([^\]]+)(\]))/;
         this.pattern = {
             comment: 'e.g. foo[-P1]',
             captures: {
@@ -415,7 +420,7 @@ class InterCycleDep {
                         {include: '#isodatetimes'},
                         {
                             comment: 'Initial cycle point',
-                            match: '\\^',
+                            match: /\^/,
                             captures: {
                                 0: {name: 'constant.language.cycle-point.cylc'}
                             }
@@ -440,14 +445,14 @@ class Parameterization {
 
         this.pattern = {
             name: 'meta.annotation.parameterization.cylc',
-            begin: '<',
-            end: [
-                `(>)`,
-                `${interCycle.regex}?`,
-                `${qualifier.regex}?`,
-                `${optionalOutput.regex}?`,
+            begin: /</,
+            end: regexJoin(
+                /(>)/,
+                `${interCycle.regex.source}?`,
+                `${qualifier.regex.source}?`,
+                `${optionalOutput.regex.source}?`,
 
-            ].join(''),
+            ),
             beginCaptures: {
                 0: {name: 'punctuation.definition.annotation.begin.cylc'}
             },
@@ -463,17 +468,17 @@ class Parameterization {
                     name: 'meta.polling.cylc',
                     patterns: [
                         {
-                            match: `([^\\s<>]+)(?=::)`,
+                            match: /([^\s<>]+)(?=::)/,
                             captures: {
                                 1: {name: 'entity.name.namespace.suite.cylc'},
                             }
                         },
                         {
                             name: 'punctuation.accessor.cylc',
-                            match: `(?<=\\S)::(?=\\S)`
+                            match: /(?<=\S)::(?=\S)/
                         },
                         {
-                            match: `(?<=::)(${task.regex})`,
+                            match: regexJoin(/(?<=::)/, `(${task.regex.source})`),
                             captures: {
                                 1: {name: task.name},
                             }
@@ -482,7 +487,7 @@ class Parameterization {
                     ]
                 },
                 {
-                    match: '(\\w+)[\\t ]*(=)[\\t ]*(\\w+)',
+                    match: /(\w+)[\t ]*(=)[\t ]*(\w+)/,
                     captures: {
                         1: {name: 'variable.parameter.cylc'},
                         2: {name: 'keyword.operator.assignment.cylc'},
@@ -490,18 +495,18 @@ class Parameterization {
                             patterns: [
                                 {
                                     name: 'constant.numeric.cylc',
-                                    match: '\\d+$'
+                                    match: /\d+$/
                                 },
                                 {
                                     name: 'variable.other.cylc',
-                                    match: '\\w+'
+                                    match: /\w+/
                                 }
                             ]
                         }
                     }
                 },
                 {
-                    match: '([\\+\\-])[\\t ]*(\\d+)(?!\\w)',
+                    match: /([\+\-])[\t ]*(\d+)(?!\w)/,
                     captures: {
                         '1': {name: 'keyword.operator.arithmetic.cylc'},
                         '2': {name: 'constant.numeric.cylc'}
@@ -509,11 +514,11 @@ class Parameterization {
                 },
                 {
                     name: 'variable.parameter.cylc',
-                    match: '\\w+'
+                    match: /\w+/
                 },
                 {
                     name: 'punctuation.separator.parameter.cylc',
-                    match: ','
+                    match: /,/
                 }
             ]
         };
@@ -523,8 +528,9 @@ class Parameterization {
 
 class IsoTimeZoneLong {
     constructor() {
+        this.regex = /((Z)|(?:([\+\-])(\d{2})(?:(\:)(\d{2}))?))/;
         this.pattern = {
-            match: `${this.regex = '((Z)|(?:([\\+\\-])(\\d{2})(?:(\\:)(\\d{2}))?))'}\\b`,
+            match: regexJoin(this.regex, /\b/),
             captures: {
                 1: {name: 'constant.numeric.timezone.long.cylc'},
                 2: {name: 'punctuation.definition.timezone.cylc'},
@@ -538,8 +544,9 @@ class IsoTimeZoneLong {
 }
 class IsoTimeZoneShort {
     constructor() {
+        this.regex = /((Z)|(?:([\+\-])(\d{2})(\d{2})?))/;
         this.pattern = {
-            match: `${this.regex = '((Z)|(?:([\\+\\-])(\\d{2})(\\d{2})?))'}\\b`,
+            match: regexJoin(this.regex, /\b/),
             captures: {
                 1: {name: 'constant.numeric.isotimezone.short.cylc'},
                 2: {name: 'punctuation.definition.timezone.cylc'},
@@ -554,9 +561,10 @@ class IsoTimeZoneShort {
 class IsoTimeLong {
     constructor() {
         const timeZone = new IsoTimeZoneLong();
+        this.regex = regexJoin(/(T)(\d{2})(?:(:)(\d{2}))?(?:(:)(\d{2}))?/, timeZone.regex, '?');
         this.pattern = {
             name: 'constant.numeric.isotime.long.cylc',
-            match: `\\b${this.regex = `(T)(\\d{2})(?:(:)(\\d{2}))?(?:(:)(\\d{2}))?${timeZone.regex}?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: capturesFromValues([
                 {name: 'punctuation.definition.time.cylc'},
                 {name: 'constant.numeric.hour.cylc'},
@@ -572,9 +580,10 @@ class IsoTimeLong {
 class IsoTimeShort {
     constructor() {
         const timeZone = new IsoTimeZoneShort();
+        this.regex = regexJoin(/(T)(\d{2})(\d{2})?(\d{2})?/, timeZone.regex, '?');
         this.pattern = {
             name: 'constant.numeric.isotime.short.cylc',
-            match: `\\b${this.regex = `(T)(\\d{2})(\\d{2})?(\\d{2})?${timeZone.regex}?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: capturesFromValues([
                 {name: 'punctuation.definition.time.cylc'},
                 {name: 'constant.numeric.hour.cylc'},
@@ -588,9 +597,10 @@ class IsoTimeShort {
 
 class IsoDateLong {
     constructor() {
+        this.regex = /(\d{4})(?:(\-)(\d{2}))?(?:(\-)(\d{2}))?/;
         this.pattern = {
             name: 'constant.numeric.isodate.long.cylc',
-            match: `\\b${this.regex = `(\\d{4})(?:(\\-)(\\d{2}))?(?:(\\-)(\\d{2}))?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: {
                 1: {name: 'constant.numeric.year.cylc'},
                 2: {name: 'punctuation.separator.date.cylc'},
@@ -603,9 +613,10 @@ class IsoDateLong {
 }
 class IsoDateShort {
     constructor() {
+        this.regex = /(\d{4})(\d{2})?(\d{2})?/;
         this.pattern = {
             name: 'constant.numeric.isodate.short.cylc',
-            match: `\\b${this.regex = `(\\d{4})(\\d{2})?(\\d{2})?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: {
                 1: {name: 'constant.numeric.year.cylc'},
                 2: {name: 'constant.numeric.month.cylc'},
@@ -619,9 +630,10 @@ class IsoDateTimeLong {
     constructor() {
         const time = new IsoTimeLong();
         const date = new IsoDateLong();
+        this.regex = regexJoin(date.regex, `(?:${time.regex.source})?`);
         this.pattern = {
             name: 'constant.numeric.isodatetime.long.cylc',
-            match: `\\b${this.regex = `${date.regex}(?:${time.regex})?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: capturesFromValues([
                 ...Object.values(date.pattern.captures),
                 ...Object.values(time.pattern.captures),
@@ -633,9 +645,10 @@ class IsoDateTimeShort {
     constructor() {
         const time = new IsoTimeShort();
         const date = new IsoDateShort();
+        this.regex = regexJoin(date.regex, `(?:${time.regex.source})?`);
         this.pattern = {
             name: 'constant.numeric.isodatetime.short.cylc',
-            match: `\\b${this.regex = `${date.regex}(?:${time.regex})?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: capturesFromValues([
                 ...Object.values(date.pattern.captures),
                 ...Object.values(time.pattern.captures),
@@ -654,22 +667,22 @@ class IllegalIsoDateTime {
             {
                 name: 'invalid.illegal.isodatetime.cylc',
                 comment: 'Malformed isodatetime e.g. 2000T00',
-                match: `\\b\\d{3,7}T\\d{2,}Z?\\b`
+                match: /\b\d{3,7}T\d{2,}Z?\b/
             },
             {
                 name: 'invalid.illegal.isodatetime.cylc',
                 comment: 'Mixed long/short syntaxes e.g. 2000-12-01T0600',
-                match: `\\b${isodate.long.regex}T\\d{3,}\\b`
+                match: regexJoin(/\b/, isodate.long.regex, /T\d{3,}\b/)
             },
             // {
             //     name: 'invalid.illegal.isodatetime.cylc',
             //     comment: 'Mixed long/short syntaxes e.g. 2000-12-01T00+0530',
-            //     match: `\\b${isodate.long.regex}T\\b`
+            //     match: regexJoin(/\b/, isodate.long.regex, /T\b/)
             // },
             {
                 name: 'invalid.illegal.isodatetime.cylc',
                 comment: 'Mixed long/short syntaxes e.g. 20001201T06:00, 20001201T06+05:30',
-                match: `\\b${isodate.short.regex}T\\d{2,}(?:[\\+\\-]\\d+)?\\:\\d*\\b`
+                match: regexJoin(/\b/, isodate.short.regex, /T\d{2,}(?:[\+\-]\d+)?\:\d*\b/)
             }
         ];
     }
@@ -681,7 +694,7 @@ class IntervalInteger {
         this.pattern = {
             name: 'constant.numeric.interval.integer.cylc',
             comment: 'e.g. P1 but not P1D',
-            match: '\\b(P)\\d+\\b',
+            match: /\b(P)\d+\b/,
             captures: {
                 1: {name: 'punctuation.definition.period.cylc'}
             }
@@ -693,7 +706,7 @@ class IntervalIsoWeek {
         this.pattern = {
             name: 'constant.numeric.interval.iso.cylc',
             comment: 'e.g. P1W',
-            match: '\\b(P)\\d+(W)\\b',
+            match: /\b(P)\d+(W)\b/,
             captures: {
                 1: {name: 'punctuation.definition.period.cylc'},
                 2: {name: 'punctuation.definition.week.cylc'}
@@ -703,10 +716,11 @@ class IntervalIsoWeek {
 }
 class IntervalIsoTime {
     constructor() {
+        this.regex = /(T)(?:\d+(H))?(?:\d+(M))?(?:\d+(S))?/;
         this.pattern = {
             name: 'constant.numeric.interval.isotime.cylc',
             comment: `(?:(T)(etc))? matches e.g. T1H1M zero or more times.`,
-            match: `${this.regex = `(T)(?:\\d+(H))?(?:\\d+(M))?(?:\\d+(S))?`}`,
+            match: this.regex,
             captures: {
                 1: {name: 'punctuation.definition.time.cylc'},
                 2: {name: 'punctuation.definition.hour.cylc'},
@@ -719,10 +733,14 @@ class IntervalIsoTime {
 class IntervalIso {
     constructor() {
         const time = new IntervalIsoTime();
+        this.regex = regexJoin(
+            /(P(?=(?:\d|T\d)))(?:\d+(Y))?(?:\d+(M))?(?:\d+(D))?/,
+            `(?:${time.regex.source})?`,
+        );
         this.pattern = {
             name: 'constant.numeric.interval.iso.cylc',
             comment: `e.g. P1Y1M1DT1H1M1S, P1D, PT1M. (P(?=(?:\\d|T\\d))) captures P only if followed by a digit or T. (?:\\d+(Y))? matches e.g. 1Y zero or more times, etc.`,
-            match: `\\b${this.regex = `(P(?=(?:\\d|T\\d)))(?:\\d+(Y))?(?:\\d+(M))?(?:\\d+(D))?(?:${time.regex})?`}\\b`,
+            match: regexJoin(/\b/, this.regex, /\b/),
             captures: capturesFromValues([
                 {name: 'punctuation.definition.period.cylc'},
                 {name: 'punctuation.definition.year.cylc'},
@@ -744,7 +762,7 @@ class IllegalInterval {
             {
                 name: 'invalid.illegal.interval.cylc',
                 comment: 'e.g. P1H without T separator',
-                match: '\\bP\\d+[HS]'
+                match: /\bP\d+[HS]/
             },
         ];
     }
@@ -756,7 +774,7 @@ class IntegerPoint {
         this.pattern = {
             name: 'constant.numeric.integer-point.cylc',
             comment: `Integer as long as it isn't adjacent to a letter`,
-            match: '\\b\\d+\\b'
+            match: /\b\d+\b/
         };
     }
 }
@@ -766,7 +784,7 @@ class ArithmeticOperator {
     constructor() {
         this.pattern = {
             name: 'keyword.operator.arithmetic.cylc',
-            match: '[\\+\\-]'
+            match: /[\+\-]/
         };
     }
 }
@@ -782,17 +800,17 @@ class Jinja2Statement {
         this.pattern = {
             name: 'meta.embedded.block.jinja',
             comment: `e.g. {% ... %}`,
-            begin: `(?={%)`,
-            end: `(?<=%})`,
+            begin: /(?={%)/,
+            end: /(?<=%})/,
             contentName: 'source.jinja',
             patterns: [
                 {include: 'source.jinja'},
                 {
-                    match: '\\G{%[\\+\\-]?',
+                    match: /\G{%[\+\-]?/,
                     name: 'punctuation.definition.template-expression.begin.jinja'
                 },
                 {
-                    match: '\\-?%}',
+                    match: /\-?%}/,
                     name: 'punctuation.definition.template-expression.end.jinja'
                 }
             ]
@@ -804,17 +822,17 @@ class Jinja2Expression {
         this.pattern = {
             name: 'meta.embedded.block.jinja',
             comment: `e.g. {{ ... }}`,
-            begin: `(?={{)`,
-            end: `(?<=}})`,
+            begin: /(?={{)/,
+            end: /(?<=}})/,
             contentName: 'source.jinja',
             patterns: [
                 {include: 'source.jinja'},
                 {
-                    match: '\\G{{',
+                    match: /\G{{/,
                     name: 'punctuation.definition.template-expression.begin.jinja'
                 },
                 {
-                    match: '}}',
+                    match: /}}/,
                     name: 'punctuation.definition.template-expression.end.jinja'
                 }
             ]
@@ -826,8 +844,8 @@ class Jinja2Comment {
         this.pattern = {
             name: 'comment.block.jinja',
             comment: `e.g. {# ... #}`,
-            begin: `{#`,
-            end: `#}`,
+            begin: /{#/,
+            end: /#}/,
             beginCaptures: {
                 0: {name: 'punctuation.definition.comment.begin.jinja'}
             },

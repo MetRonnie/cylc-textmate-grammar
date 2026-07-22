@@ -11,6 +11,13 @@ export default [
         },
     },
     {
+        files: ["**/*.tmLanguage.js"],
+        rules: {
+            // Disable rules that are not compatible with the Oniguruma regex engine used by textmate grammars
+            "no-useless-escape": "off",
+        },
+    },
+    {
         files: ["**/*.mjs"],
         languageOptions: {
             sourceType: "module",

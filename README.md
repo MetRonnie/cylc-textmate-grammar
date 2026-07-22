@@ -36,7 +36,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Contributing
 
-**Note:** the `cylc.tmLanguage.json` file is generated from the JavaScript file(s) in `src/`. Contributors should edit the JavaScript files, **not** the JSON file; the JSON file should only be generated using the build script (using [node](https://nodejs.org/en/)).
+**Note:** the `cylc.tmLanguage.json` file is built from the JavaScript file(s) in `src/`. Contributors should edit the JavaScript files, **not** the JSON file; the JSON file should only be generated using the build script (using [node](https://nodejs.org/en/)).
 
 ### Getting started
 
@@ -55,7 +55,7 @@ class LineComment {
     constructor() {
         this.pattern = {
             name: 'comment.line.cylc',
-            match: '(#).*',
+            match: /(#).*/,
             captures: {
                 1: {name: 'punctuation.definition.comment.cylc'}
             }
@@ -72,13 +72,17 @@ class GraphSyntax {
             new Task().pattern,
             {
                 name: 'keyword.control.trigger.cylc',
-                match: '=>'
+                match: /=>/,
             },
     // etc.
 ```
 Notice above the inclusion of the class `Task`'s pattern object.
 
-Remember that the regex escape character `\` needs to be itself escaped. E.g., for the regex `\s` you need to write `\\s`.
+> [!IMPORTANT]
+> Regex literals (`/.../`) are automatically converted to strings when [building](#build).
+> However, TextMate grammars use the Oniguruma regex engine, which supports some features that are not supported by JavaScript regexes, and vice versa.
+> These can break the build process, so you may need to use strings instead of regex literals and make sure to escape any backslashes.
+> For example, to match digits using the possessive quantifier you would need to write `'\\d*+'` instead of `/\d*+/`, or else do something like `/\d/.source + '*+'`.
 
 The `exports.tmLanguage` object is where the collection of patterns should go, i.e.:
 ```javascript
